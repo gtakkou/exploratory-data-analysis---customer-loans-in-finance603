@@ -1,6 +1,10 @@
 import psycopg2
-import PyYAML
+#import PyYAML
+import pandas as pd
 from sqlalchemy import create_engine
+import yaml
+from sqlalchemy import inspect
+from sqlalchemy import text
 
 host = "project-aicore.c5ofryhnh2op.eu-west-1.rds.amazonaws.com"
 port = "5432"
@@ -10,58 +14,60 @@ password = "omonoia1996"
 
 
 class RDSDatabaseConnector:
+
+    def __init__(self, credentials_location):
+
+        credentials = self.load_credentials(credentials_location)
+        
+        self.db_type = credentials['RDS_DATABASE_TYPE']
+        self.db_api = credentials['RDS_DBAPI']
+        self.host = credentials['RDS_HOST']
+        self.port = credentials['RDS_PORT']
+        self.database = credentials['RDS_DATABASE']
+        self.user = credentials['RDS_USER']
+        self.password = credentials['RDS_PASSWORD']
+
+        self._create_engine()
     
-    def connect(self):
-        self.connection = psycopg2.connect(
-            host=host,
-            port=port,
-            database=database,
-            user=user,
-            password=password
-        )
-        print("connected")
-
-
-    def close_connection(self):
-        self.connection.close()
-        print("disconnected")
-
-    def load_credentials(file_path = "credentialt.yaml"):
+   
+    def load_credentials(self, file_path = "credentials.yaml"):
        with open(file_path,'r') as file:
-        return load_credentials
-       
-    def __init__(self, credentials):
-        self.host = credentials['host']
-        self.port = credentials['user']
-        self.database = credentials['database']
-        self.user = credentials['user']
-        self.password = credentials['password']
+        return yaml.safe_load(file.read())      
 
-        self.connection = None
 
     def _create_engine(self):
-        # Create and return an SQLAlchemy engine
-        engine = create_engine(
-            f"mysql+mysqlconnector://{self.host}:{self.password}@{self.host}/{self.database}",
-            pool_size=5, pool_timeout=30, pool_recycle=3600
-        )
-        return engine
+       self.engine = create_engine(f"{self.db_type}+{self.db_api}://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}")
 
+    def execute(self, query):
+        # How to use: result = db.execute("SELECT * FROM loan_payments")
+        with self.engine.connect() as connection:
+           result = connection.execute(text(query))
+           for row in result:
+              print(row)
+    
+    def read_sql_table(self, table):
+       return pd.read_sql_table(table, self.engine)
+            
+  
 
-    # Other method to get data
+class DataframeOperations:
+
+    def __init__(self, df):
+       self.df = df
+
+    def save_to_csv(self, save_path):
+       self.df.to_csv(save_path, index=False)
+
+    def get_total_load_amount(self):
+       print(sum(self.df["loan_amount"]))
+   
 
 if __name__ == "__main__":
 
-    db = RDSDatabaseConnector(
-        host, port, database, user, password
-    )
-    db.connect()
+    # Create connector and read table onto a dataframe
+    db = RDSDatabaseConnector("AWS/credentials.yaml")
+    df = db.read_sql_table("loan_payments")
 
-
-
-
-    db.close_connection()
-
-def load_credentials(file_path = "credentialt.yaml"):
-    open(file_path,'r') as file:
-return credentials
+    # Perform operations on that dataframe
+    df_ops = DataframeOperations(df)
+    df_ops.save_to_csv("C:/Users/George Takkou/Desktop/VS Code/loan_payments_from_child.csv")
