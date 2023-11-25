@@ -1,16 +1,9 @@
 import psycopg2
-#import PyYAML
 import pandas as pd
 from sqlalchemy import create_engine
 import yaml
 from sqlalchemy import inspect
 from sqlalchemy import text
-
-host = "project-aicore.c5ofryhnh2op.eu-west-1.rds.amazonaws.com"
-port = "5432"
-database = "postgres"
-user = "postgres"
-password = "omonoia1996"
 
 
 class RDSDatabaseConnector:
